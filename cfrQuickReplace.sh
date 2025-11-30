@@ -1,4 +1,5 @@
 #!/bin/bash
+set -f
 tmpFile=$HOME/.tmpFile # промежуточный файл, в него построчно копируются все строки не содержащие паттерн
                        # как только найдена будет строка содержащая паттерн она будет модифицирована
                        # согласно сценария, а затем дописана в tmpFile
@@ -8,14 +9,18 @@ tmpFile=$HOME/.tmpFile # промежуточный файл, в него пос
 input_file=$1  # файл КОНФИГУРАЦИИ в первом аргументе, который подвергается редактированию одного параметра, после окончания
                # работы скрипта файл либо замещается редактированной версией, либо выдается ошибка
 pattern=$2     # параметр конфигурации значение которого подвергается редактированию
-newValue=$3    # новое значение параметра pattern
+newValue="$3"    # новое значение параметра pattern
 oldValue=''    # старое значение если есть будет перемещено за знак # c пометкой oldValue
+comment=''     # переменная для хранения коментария
+newLine=''     #новая строка храниться в этой переменной
 #Флаги скрипта
 disabledOptionFlag=false        #во время анализа строки содержащий pattern будет выяснено
                                 #активна ли опция, либо она закоментирована знаком #
 patternAvailabilityFlag=false   #флаг устанавливается во время анализа и указывает доступен ли параметр, иными словами
                                 #укладывается ли найденая строка в шаблон \# || [[:space:]]* $pattern...
+
 equalSignAvailabilityFlag=false # флаг устанавливается во время анализа и указывает на присутствие после параметра знака равно '='
+spacesAroundEqual=true         #анализ на пробелы слева и справа знака равно
 
 quotesAvailabilityFlag=false    #флаг устанавливается во время анализа и указывает на то что значение параметра заключено в одинарные ковычки
 
@@ -55,7 +60,7 @@ fi
 while IFS= read -r line; do
     if [[ "$line" == *"$pattern"* ]];
         then
-          echo "228 $line"
+          echo "$line"
           #if [[ "$line" =~ \#[[:space:]]*$pattern[[:space:]]*=[[:space:]]*\'([^\']+)\'[[:space:]]*\#([^\']+) ]];
           if [[ "$line" =~  [[:space:]]*\#[[:space:]]*$pattern ]];
             then
@@ -67,30 +72,103 @@ while IFS= read -r line; do
           if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern ]];
             then
               patternAvailabilityFlag=true
+
+                if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*= ]];
+                  then
+                    equalSignAvailabilityFlag=true
+                    echo "знак равно после параметра"
+                    if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern= ]];
+                      then
+                        spacesAroundEqual=false
+                      else
+                        spacesAroundEqual=true
+
+                    fi
+                  else
+                    equalSignAvailabilityFlag=false
+                fi
+                if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*=*[[:space:]]*\'([^\']+)\' ]];
+                  then
+                    quotesAvailabilityFlag=true
+                    echo "значение в кавычках"
+                  else
+                    quotesAvailabilityFlag=false
+                fi
+                if [[ "$line" =~  [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*=*[[:space:]]*\'*([^\'^#^=]+)\'*[[:space:]]* ]];
+                  then
+                    if [ -n "${BASH_REMATCH[1]}" ];
+                      then
+                        oldValueAvailabilityFlag=false
+                      else
+                        oldValueAvailabilityFlag=true
+                        oldValue=${BASH_REMATCH[1]}
+                    fi
+
+                    echo "старое значение = $oldValue"
+                  else
+                      oldValueAvailabilityFlag=false
+                  fi
+
+
+                  if [[ "$line" =~  [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*=*[[:space:]]*\'*([^\'^#]+)\'*[[:space:]]*\#([^#]*) ]];
+                    then
+                      comentAvailabilityFlag=true
+                      comment=${BASH_REMATCH[2]}
+                      echo "текст коментария = $comment"
+                    else
+                      comentAvailabilityFlag=false
+                  fi
+                  ######## Финальная сборка новой строки
+                  newLine=$pattern
+                  if [[ "$equalSignAvailabilityFlag" == true ]];
+                    then
+
+                      if [[ "$spacesAroundEqual" == true ]];
+                        then
+                          newLine="$newLine = "
+                        else
+                          newLine="$newLine="
+                      fi
+                  fi
+                  if [[ "$quotesAvailabilityFlag" == true ]];
+                    then
+                      newLine="$newLine'"
+                  fi
+                  if [[ "$equalSignAvailabilityFlag" == true ]];
+                    then
+                      newLine="$newLine$newValue"
+                    else
+                      newLine="$newLine $newValue"
+                  fi
+
+                  if [[ "$quotesAvailabilityFlag" == true ]];
+                    then
+                      newLine="$newLine'"
+                  fi
+                  if [[ "$comentAvailabilityFlag" ==  true ]];
+                    then
+                      newLine="$newLine #$comment"
+                  fi
+                  if [[ "$oldValueAvailabilityFlag"  == true ]];
+                    then
+                      newLine="$newLine # oldValue = $oldValue"
+                  fi
+                  echo $newLine >> $tmpFile
+
+
+
+
+
+
+
+
+
             else
               echo "местонахождения параметра не соответствует заданному шаблону"
               patternAvailabilityFlag=false
               continue
           fi
-          if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*= ]];
-            then
-              equalSignAvailabilityFlag=true
-              echo "знак равно после параметра"
-            else
-              equalSignAvailabilityFlag=false
-          fi
-          if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*=*[[:space:]]*\'([^\']+)\' ]];
-            then
-              quotesAvailabilityFlag=true
-            else
-              quotesAvailabilityFlag=false
-          fi
-          if [[ "$line" =~ [[:space:]]*\#*[[:space:]]*$pattern[[:space:]]*=*[[:space:]]*\'([^\']+)\' ]];
-            then
-              comentAvailabilityFlag=true
-            else
-              comentAvailabilityFlag=false
-          fi
+
 
 
 
