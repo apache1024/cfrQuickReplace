@@ -27,7 +27,7 @@ sudo mv cfrQuickReplace.sh /usr/local/bin/cfrQuickReplace
 
 ### Установка из репозитория
 ```bash
-git clone https://github.com/yourusername/cfrQuickReplace.git
+git clone https://github.com/apache1024/cfrQuickReplace.git
 cd cfrQuickReplace
 sudo install -m 755 cfrQuickReplace.sh /usr/local/bin/cfrQuickReplace
 ```
