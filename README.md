@@ -20,7 +20,7 @@
 
 ### Быстрая установка
 ```bash
-curl -O https://raw.githubusercontent.com/yourusername/cfrQuickReplace/main/cfrQuickReplace.sh
+curl -O https://raw.githubusercontent.com/apache1024/cfrQuickReplace/main/cfrQuickReplace.sh
 chmod +x cfrQuickReplace.sh
 sudo mv cfrQuickReplace.sh /usr/local/bin/cfrQuickReplace
 ```
